@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<link rel="manifest" href="/manifest.json">
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js');
+  }
+</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#2563eb">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Скалолазание</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin: 0;
+    font-family: -apple-system, Roboto, "Segoe UI", sans-serif;
+    background: #f1f5f9;
+    color: #0f172a;
+    padding: 16px;
+    padding-bottom: 40px;
+    min-height: 100vh;
+  }
+  .card {
+    background: #fff;
+    border-radius: 18px;
+    padding: 20px;
+    margin-bottom: 14px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  }
+  h1 {
+    font-size: 22px;
+    margin: 0 0 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .schedule {
+    color: #64748b;
+    font-size: 15px;
+    margin-bottom: 18px;
+  }
+  .stats {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .stat {
+    flex: 1;
+    background: #f8fafc;
+    border-radius: 12px;
+    padding: 12px 10px;
+    text-align: center;
+  }
+  .stat .num { font-size: 24px; font-weight: 800; }
+  .stat .lbl { font-size: 12px; color: #64748b; margin-top: 2px; }
+  .stat.blue .num { color: #2563eb; }
+  .stat.green .num { color: #22c55e; }
+  .stat.orange .num { color: #f59e0b; }
+
+  .bar {
+    height: 12px;
+    background: #e2e8f0;
+    border-radius: 6px;
+    overflow: hidden;
+    margin-bottom: 20px;
+  }
+  .bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #22c55e, #4ade80);
+    border-radius: 6px;
+    transition: width 0.3s;
+  }
+
+  .next-lesson {
+    background: #eff6ff;
+    border-radius: 12px;
+    padding: 14px;
+    margin-bottom: 16px;
+    border: 1.5px solid #bfdbfe;
+  }
+  .next-lesson .lbl {
+    font-size: 12px;
+    color: #2563eb;
+    text-transform: uppercase;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+  }
+  .next-lesson .date {
+    font-size: 18px;
+    font-weight: 700;
+    color: #1e40af;
+  }
+  .next-lesson .none {
+    font-size: 15px;
+    color: #64748b;
+  }
+
+  button {
+    border: none;
+    border-radius: 14px;
+    padding: 16px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.1s, opacity 0.2s;
+    font-family: inherit;
+  }
+  button:active { transform: scale(0.97); }
+  button:disabled { opacity: 0.4; cursor: default; }
+  .actions { display: flex; gap: 10px; }
+  .actions button { flex: 1; }
+  .btn-yes { background: #22c55e; color: #fff; }
+  .btn-no  { background: #fee2e2; color: #b91c1c; }
+  .btn-add {
+    background: #2563eb;
+    color: #fff;
+    width: 100%;
+    margin-top: 10px;
+  }
+  .btn-ghost {
+    background: transparent;
+    color: #2563eb;
+    font-size: 15px;
+    padding: 10px;
+  }
+  h2 {
+    font-size: 15px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #94a3b8;
+    margin: 0 0 12px;
+  }
+
+  /* Список плана */
+  .plan-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+    border-radius: 12px;
+    margin-bottom: 8px;
+    background: #f8fafc;
+    border-left: 4px solid #cbd5e1;
+  }
+  .plan-item.next { background: #eff6ff; border-left-color: #2563eb; }
+  .plan-item.done { background: #f0fdf4; border-left-color: #22c55e; }
+  .plan-item.missed { background: #fef2f2; border-left-color: #ef4444; opacity: 0.75; }
+  .plan-item .info { flex: 1; }
+  .plan-item .d {
+    font-size: 15px;
+    font-weight: 600;
+    color: #0f172a;
+  }
+  .plan-item .wd {
+    font-size: 12px;
+    color: #64748b;
+    margin-top: 2px;
+  }
+  .plan-item .badge {
+    font-size: 13px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 8px;
+  }
+  .plan-item.done .badge { color: #16a34a; background: #dcfce7; }
+  .plan-item.missed .badge { color: #dc2626; background: #fee2e2; }
+  .plan-item.next .badge { color: #2563eb; background: #dbeafe; }
+  .plan-item .badge.wait { color: #94a3b8; }
+
+  /* Настройки */
+  .settings label {
+    display: block;
+    font-size: 14px;
+    color: #64748b;
+    margin: 12px 0 6px;
+  }
+  .settings input {
+    width: 100%;
+    padding: 12px;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 12px;
+    font-size: 16px;
+    font-family: inherit;
+    background: #f8fafc;
+  }
+  .settings input:focus { outline: none; border-color: #2563eb; background:#fff; }
+  .days { display: flex; gap: 6px; flex-wrap: wrap; }
+  .day {
+    flex: 1;
+    min-width: 44px;
+    padding: 12px 0;
+    text-align: center;
+    border-radius: 12px;
+    background: #f1f5f9;
+    color: #64748b;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .day.active { background: #2563eb; color: #fff; }
+  .hidden { display: none; }
+  .toast {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #0f172a;
+    color: #fff;
+    padding: 12px 22px;
+    border-radius: 12px;
+    font-size: 15px;
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+    z-index: 100;
+    max-width: 90%;
+    text-align: center;
+  }
+  .toast.show { opacity: 1; }
+  .hint {
+    font-size: 13px;
+    color: #94a3b8;
+    margin-top: 10px;
+    line-height: 1.4;
+  }
+</style>
+</head>
+<body>
+
+<!-- ГЛАВНЫЙ ЭКРАН -->
+<div id="mainScreen">
+  <div class="card">
+    <h1>🧗 <span id="secName">Скалолазание</span></h1>
+    <div class="schedule" id="secSchedule">Пн, Пт · 16:00</div>
+
+    <div class="stats">
+      <div class="stat blue">
+        <div class="num" id="stPaid">8</div>
+        <div class="lbl">Оплачено</div>
+      </div>
+      <div class="stat green">
+        <div class="num" id="stDone">0</div>
+        <div class="lbl">Отходил</div>
+      </div>
+      <div class="stat orange">
+        <div class="num" id="stLeft">8</div>
+        <div class="lbl">Осталось</div>
+      </div>
+    </div>
+
+    <div class="bar"><div class="bar-fill" id="barFill" style="width:0%"></div></div>
+
+    <div class="next-lesson" id="nextLessonBox">
+      <div class="lbl">Ближайшее занятие</div>
+      <div class="date" id="nextLessonDate">—</div>
+    </div>
+
+    <div class="actions">
+      <button class="btn-yes" id="btnYes" onclick="markCurrent(true)">✅ Был</button>
+      <button class="btn-no"  id="btnNo"  onclick="markCurrent(false)">❌ Пропустил</button>
+    </div>
+    <button class="btn-add" onclick="topUp()">➕ Доплатить занятия</button>
+    <div class="hint">Кнопки отмечают <b>ближайшее занятие</b> из плана. Если пропустили — план автоматически продлится.</div>
+  </div>
+
+  <div class="card">
+    <h2>📋 План занятий</h2>
+    <div id="plan"></div>
+  </div>
+
+  <button class="btn-ghost" style="width:100%" onclick="openSettings()">⚙️ Настройки</button>
+</div>
+
+<!-- ЭКРАН НАСТРОЕК -->
+<div id="settingsScreen" class="hidden">
+  <div class="card settings">
+    <h1>⚙️ Настройки</h1>
+
+    <label>Название секции</label>
+    <input type="text" id="inpName" placeholder="Скалолазание">
+
+    <label>Дни недели</label>
+    <div class="days" id="daysBox">
+      <div class="day" data-d="1">Пн</div>
+      <div class="day" data-d="2">Вт</div>
+      <div class="day" data-d="3">Ср</div>
+      <div class="day" data-d="4">Чт</div>
+      <div class="day" data-d="5">Пт</div>
+      <div class="day" data-d="6">Сб</div>
+      <div class="day" data-d="0">Вс</div>
+    </div>
+
+    <label>Время</label>
+    <input type="time" id="inpTime">
+
+    <label>Дата начала занятий</label>
+    <input type="date" id="inpStart" min="2026-09-28">
+
+    <label>Оплачено занятий</label>
+    <input type="number" id="inpPaid" min="1">
+
+    <div style="display:flex; gap:10px; margin-top:20px;">
+      <button class="btn-no" style="flex:1" onclick="closeSettings()">Отмена</button>
+      <button class="btn-yes" style="flex:1" onclick="saveSettings()">Сохранить</button>
+    </div>
+
+    <button class="btn-ghost" style="width:100%; margin-top:16px; color:#ef4444;"
+      onclick="resetAll()">🗑 Сбросить все отметки</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const DAY_NAMES = {1:'Пн',2:'Вт',3:'Ср',4:'Чт',5:'Пт',6:'Сб',0:'Вс'};
+const STORAGE_KEY = 'climbing_app_v3';
+const MIN_DATE = '2026-09-28';
+
+let state = load();
+
+function defaultState() {
+  const start = MIN_DATE;
+  return {
+    name: 'Скалолазание',
+    days: [1, 5],
+    time: '16:00',
+    startDate: start,
+    paid: 8,
+    plan: []     // [{date:'2026-09-28', status:'wait'|'done'|'missed'}]
+  };
+}
+
+function load() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) {
+      const s = defaultState();
+      s.plan = generatePlan(s.startDate, s.days, s.paid);
+      return s;
+    }
+    return Object.assign(defaultState(), JSON.parse(raw));
+  } catch(e) {
+    const s = defaultState();
+    s.plan = generatePlan(s.startDate, s.days, s.paid);
+    return s;
+  }
+}
+
+function save() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+/* --- Генерация плана --- */
+function generatePlan(startIso, days, count) {
+  const plan = [];
+  const d = new Date(startIso + 'T00:00:00');
+  // если стартовая дата не совпадает с днём недели — начинаем с ближайшего подходящего
+  while (plan.length < count) {
+    if (days.includes(d.getDay())) {
+      plan.push({ date: isoDate(d), status: 'wait' });
+    }
+    d.setDate(d.getDate() + 1);
+  }
+  return plan;
+}
+
+/* Следующая подходящая дата после заданной */
+function nextLessonDate(afterIso, days) {
+  const d = new Date(afterIso + 'T00:00:00');
+  d.setDate(d.getDate() + 1);
+  while (!days.includes(d.getDay())) {
+    d.setDate(d.getDate() + 1);
+  }
+  return isoDate(d);
+}
+
+function isoDate(d) {
+  return d.getFullYear() + '-' +
+    String(d.getMonth()+1).padStart(2,'0') + '-' +
+    String(d.getDate()).padStart(2,'0');
+}
+
+function formatDate(iso) {
+  const d = new Date(iso + 'T00:00:00');
+  return String(d.getDate()).padStart(2,'0') + '.' +
+         String(d.getMonth()+1).padStart(2,'0') + '.' +
+         d.getFullYear();
+}
+
+function weekday(iso) {
+  const d = new Date(iso + 'T00:00:00');
+  return DAY_NAMES[d.getDay()];
+}
+
+/* --- Подсчёты --- */
+function counts() {
+  const done = state.plan.filter(p => p.status === 'done').length;
+  const left = state.paid - done;
+  return { done, left };
+}
+
+function currentLesson() {
+  return state.plan.find(p => p.status === 'wait') || null;
+}
+
+/* --- Рендер --- */
+function render() {
+  document.getElementById('secName').textContent = state.name;
+  const daysStr = state.days.slice().sort((a,b)=>((a||7)-(b||7)))
+    .map(d => DAY_NAMES[d]).join(', ');
+  document.getElementById('secSchedule').textContent = daysStr + ' · ' + state.time;
+
+  const { done, left } = counts();
+  document.getElementById('stPaid').textContent = state.paid;
+  document.getElementById('stDone').textContent = done;
+  document.getElementById('stLeft').textContent = left;
+
+  const pct = state.paid > 0 ? Math.min(100, done / state.paid * 100) : 0;
+  document.getElementById('barFill').style.width = pct + '%';
+
+  // Ближайшее занятие
+  const cur = currentLesson();
+  const nextBox = document.getElementById('nextLessonBox');
+  if (cur) {
+    nextBox.innerHTML = '<div class="lbl">Ближайшее занятие</div>' +
+      '<div class="date">📅 ' + formatDate(cur.date) + ' (' + weekday(cur.date) + ')</div>';
+    document.getElementById('btnYes').disabled = false;
+    document.getElementById('btnNo').disabled = false;
+  } else {
+    nextBox.innerHTML = '<div class="lbl">Ближайшее занятие</div>' +
+      '<div class="none">Все занятия отмечены 🎉</div>';
+    document.getElementById('btnYes').disabled = true;
+    document.getElementById('btnNo').disabled = true;
+  }
+
+  // План
+  const planBox = document.getElementById('plan');
+  if (!state.plan.length) {
+    planBox.innerHTML = '<div class="empty">План пуст</div>';
+    return;
+  }
+  planBox.innerHTML = state.plan.map((p, i) => {
+    let cls = 'plan-item';
+    let badge = '';
+    if (p.status === 'done') { cls += ' done'; badge = '<span class="badge">✅ Был</span>'; }
+    else if (p.status === 'missed') { cls += ' missed'; badge = '<span class="badge">❌ Пропустил</span>'; }
+    else if (cur && p.date === cur.date) { cls += ' next'; badge = '<span class="badge">Следующее</span>'; }
+    else { badge = '<span class="badge wait">Ожидает</span>'; }
+
+    return `<div class="${cls}">
+      <div class="info">
+        <div class="d">${formatDate(p.date)}</div>
+        <div class="wd">${weekday(p.date)}</div>
+      </div>
+      ${badge}
+    </div>`;
+  }).join('');
+}
+
+/* --- Отметка текущего занятия --- */
+function markCurrent(was) {
+  const cur = currentLesson();
+  if (!cur) { toast('Нет запланированных занятий'); return; }
+
+  cur.status = was ? 'done' : 'missed';
+
+  if (!was) {
+    // Пропуск → продлеваем план на 1 дату
+    const lastDate = state.plan[state.plan.length - 1].date;
+    const newDate = nextLessonDate(lastDate, state.days);
+    state.plan.push({ date: newDate, status: 'wait' });
+  }
+
+  save();
+  render();
+
+  if (was) {
+    toast('✅ ' + formatDate(cur.date) + ' — был');
+  } else {
+    toast('❌ Пропуск. Добавлено занятие на ' + formatDate(state.plan[state.plan.length-1].date));
+  }
+}
+
+/* --- Доплата --- */
+function topUp() {
+  const n = prompt('Сколько занятий доплатили?', '8');
+  if (n === null) return;
+  const num = parseInt(n, 10);
+  if (!num || num <= 0) return;
+
+  state.paid += num;
+  // Добавляем новые даты в конец плана
+  let lastDate = state.plan.length ? state.plan[state.plan.length-1].date : state.startDate;
+  for (let i = 0; i < num; i++) {
+    const nd = nextLessonDate(lastDate, state.days);
+    state.plan.push({ date: nd, status: 'wait' });
+    lastDate = nd;
+  }
+
+  save();
+  render();
+  toast('+' + num + ' занятий. План продлён');
+}
+
+/* --- Настройки --- */
+function openSettings() {
+  document.getElementById('inpName').value = state.name;
+  document.getElementById('inpTime').value = state.time;
+  document.getElementById('inpStart').value = state.startDate;
+  document.getElementById('inpPaid').value = state.paid;
+  document.querySelectorAll('.day').forEach(el => {
+    el.classList.toggle('active', state.days.includes(parseInt(el.dataset.d)));
+  });
+  document.getElementById('mainScreen').classList.add('hidden');
+  document.getElementById('settingsScreen').classList.remove('hidden');
+}
+
+function closeSettings() {
+  document.getElementById('settingsScreen').classList.add('hidden');
+  document.getElementById('mainScreen').classList.remove('hidden');
+}
+
+document.querySelectorAll('.day').forEach(el => {
+  el.addEventListener('click', () => el.classList.toggle('active'));
+});
+
+function saveSettings() {
+  const name = document.getElementById('inpName').value.trim() || 'Секция';
+  const time = document.getElementById('inpTime').value || '16:00';
+  const start = document.getElementById('inpStart').value || MIN_DATE;
+  const paid = Math.max(1, parseInt(document.getElementById('inpPaid').value) || 1);
+  const days = [...document.querySelectorAll('.day.active')].map(el => parseInt(el.dataset.d));
+
+  const startChanged = start !== state.startDate;
+  const daysChanged = JSON.stringify(days.sort()) !== JSON.stringify(state.days.slice().sort());
+  const paidChanged = paid !== state.paid;
+
+  state.name = name;
+  state.time = time;
+  state.startDate = start;
+  state.days = days.length ? days : [1,5];
+  state.paid = paid;
+
+  if (startChanged || daysChanged) {
+    // Пересобираем план полностью
+    state.plan = generatePlan(state.startDate, state.days, state.paid);
+  } else if (paidChanged) {
+    // Доплата или уменьшение — корректируем количество дат в плане
+    const done = state.plan.filter(p => p.status === 'done').length;
+    const targetLen = Math.max(paid, done);
+    // Убираем лишние ожидающие с конца
+    while (state.plan.length > targetLen &&
+           state.plan[state.plan.length-1].status === 'wait') {
+      state.plan.pop();
+    }
+    // Добавляем, если не хватает
+    let lastDate = state.plan.length ? state.plan[state.plan.length-1].date : state.startDate;
+    while (state.plan.length < targetLen) {
+      const nd = nextLessonDate(lastDate, state.days);
+      state.plan.push({ date: nd, status: 'wait' });
+      lastDate = nd;
+    }
+  }
+
+  save();
+  render();
+  closeSettings();
+  toast('Сохранено');
+}
+
+function resetAll() {
+  if (!confirm('Сбросить все отметки? План будет пересоздан с нуля.')) return;
+  state.plan = generatePlan(state.startDate, state.days, state.paid);
+  save();
+  render();
+  toast('Сброшено');
+}
+
+/* --- Тост --- */
+let toastTimer;
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+render();
+</script>
+</body>
+</html>
